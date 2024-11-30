@@ -102,6 +102,19 @@ for ($i = 0; $i < $duration; $i++) {
     $current_date->modify('+1 day');
 }
 
+// Fetch the number of uploaded images for the project
+$sql_images = "SELECT COUNT(*) AS uploaded_images FROM project_images WHERE project_id = ?";
+$stmt_images = $conn->prepare($sql_images);
+$stmt_images->bind_param("s", $project_id);
+$stmt_images->execute();
+$result_images = $stmt_images->get_result();
+$uploaded_images = $result_images->fetch_assoc()['uploaded_images'];
+$stmt_images->close();
+
+
+// Calculate progress percentage
+$progress = $duration > 0 ? ($uploaded_images / $duration) * 100 : 0;
+
 // Fetch existing images for the project
 $uploaded_images = [];
 $sql = "SELECT id, day_number FROM project_images WHERE project_id = ?";
@@ -150,6 +163,7 @@ $stmt->close();
         margin: 0;
         padding: 0;
         color: #333;
+        align-items: center;
       }
 
       .header {
@@ -166,7 +180,150 @@ $stmt->close();
             background: white;
             border-radius: 5px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            align-items: center;
         }
+
+        .card {
+            width: 600px;
+            padding: 20px;
+            background: #fff;
+            border: 6px solid #000;
+            box-shadow: 12px 12px 0 #000;
+            transition: transform 0.3s, box-shadow 0.3s;
+            margin-bottom: 20px;
+            margin-top:30px;
+            margin-left:auto;
+            margin-right:auto;
+        }
+
+        .card:hover {
+            transform: translate(-5px, -5px);
+            box-shadow: 17px 17px 0 #000;
+        }
+
+        .card__title {
+            font-size: 30px;
+            font-weight: 900;
+            color: #000;
+            text-transform: uppercase;
+            margin-bottom: 15px;
+            display: block;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card__title::after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 90%;
+            height: 3px;
+            background-color: #000;
+            transform: translateX(-100%);
+            transition: transform 0.3s;
+        }
+
+        .card:hover .card__title::after {
+            transform: translateX(0);
+        }
+
+        .card__content {
+            font-size: 20px;
+            line-height: 1.4;
+            color: #000;
+            margin-bottom: 20px;
+            align-self:center;
+        }
+
+        @keyframes progress {
+            0% { --percentage: 0; }
+            100% { --percentage: var(--value); }
+        }
+
+        [role="progressbar"] {
+            --percentage: var(--value);
+            --primary: #333;
+            --secondary: rgb(194, 195, 196);
+            --size: 150px;
+            animation: progress 2s 0.5s forwards;
+            width: var(--size);
+            aspect-ratio: 1;
+            border-radius: 50%;
+            position: relative;
+            overflow: hidden;
+            display: grid;
+            place-items: center;
+            margin: 20px auto;
+        }
+
+        [role="progressbar"]::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: conic-gradient(var(--primary) calc(var(--percentage) * 1%), var(--secondary) 0);
+            mask: radial-gradient(white 55%, transparent 0);
+            mask-mode: alpha;
+            -webkit-mask: radial-gradient(#0000 55%, #000 0);
+            -webkit-mask-mode: alpha;
+        }
+
+        [role="progressbar"]::after {
+            counter-reset: percentage var(--value);
+            content: counter(percentage) '%';
+            font-family: Helvetica, Arial, sans-serif;
+            font-size: calc(var(--size) / 5);
+            color: var(--primary);
+        }
+
+        h1 {
+  position: relative;
+  padding: 0;
+  margin: 0;
+  font-family: "Raleway", sans-serif;
+  font-weight: 300;
+  font-size: 40px;
+  color: #080808;
+  -webkit-transition: all 0.4s ease 0s;
+  -o-transition: all 0.4s ease 0s;
+  transition: all 0.4s ease 0s;
+}
+
+h1 span {
+  display: block;
+  font-size: 0.5em;
+  line-height: 1.3;
+}
+h1 em {
+  font-style: normal;
+  font-weight: 600;
+}
+
+    /* From Uiverse.io by zymantas-katinas */ 
+    .seven h1 {
+text-align: center;
+    font-size:30px; font-weight:300; color:#222; letter-spacing:1px;
+    text-transform: uppercase;
+
+    display: grid;
+    grid-template-columns: 1fr max-content 1fr;
+    grid-template-rows: 27px 0;
+    grid-gap: 20px;
+    align-items: center;
+}
+
+.seven h1:after,.seven h1:before {
+    content: " ";
+    display: block;
+    border-bottom: 1px solid #333;
+    border-top: 1px solid #333;
+    height: 5px;
+  background-color:#f8f8f8;
+}
+
         .details {
             margin-top: 2em;
         }
@@ -637,6 +794,7 @@ display: inline-block;
     .botton:active {
       scale: 1;
     }
+
     </style>
   </head>
 
@@ -665,8 +823,9 @@ display: inline-block;
       </div>
 
       <!-- Detection Section -->
-      <h1><?php echo $project['project_name']; ?></h1>
-        <div class="details">
+      <div class="card">
+        <span class="card__title"><?php echo $project['project_name']; ?></span>
+        <div class="card__content">
             <p><strong>Project ID:</strong> <?php echo $project['project_id']; ?></p>
             <p><strong>Sector:</strong> <?php echo $project['sector']; ?></p>
             <p><strong>Sub-Sector:</strong> <?php echo $project['sub_sector']; ?></p>
@@ -674,12 +833,17 @@ display: inline-block;
             <p><strong>Start Date:</strong> <?php echo $project['start_date']; ?></p>
             <p><strong>Completion Date:</strong> <?php echo $project['completion_date']; ?></p>
             <p><strong>Duration:</strong> <?php echo $project['duration']; ?> days</p>
-            <p><strong>Project Manager:</strong> <?php echo $project['project_manager']; ?></p>
-            <p><strong>Project Contractor:</strong> <?php echo $project['project_contractor']; ?></p>
+            <p><strong>Manager:</strong> <?php echo $project['project_manager']; ?></p>
+            <p><strong>Contractor:</strong> <?php echo $project['project_contractor']; ?></p>
             <p><strong>Total Cost:</strong> Rs. <?php echo $project['total_cost']; ?></p>
+            <div role="progressbar" aria-valuenow="<?php echo round($progress); ?>" aria-valuemin="0" aria-valuemax="100" style="--value: <?php echo round($progress); ?>"></div>
         </div>
+    </div>
 
-        <h2>Upload Project Images</h2>
+        <div class="seven">
+    <br><h1>Upload Project Images</h1>
+  </div>
+
         <div class="upload-container">
     <?php foreach ($dates as $index => $date): ?>
         <div class="upload-box">
