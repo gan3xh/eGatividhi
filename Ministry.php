@@ -522,6 +522,55 @@ button {
         }
       }
 
+      @keyframes progress {
+            0% { --percentage: 0; }
+            100% { --percentage: var(--value); }
+        }
+
+        @property --percentage {
+            syntax: '<number>';
+            inherits: true;
+            initial-value: 0;
+        }
+
+        [role="progressbar"] {
+            --percentage: var(--value);
+            --primary: #333;
+            --secondary: rgb(194, 195, 196);
+            --size: 120px; /* Adjust size as needed */
+            animation: progress 2s 0.5s forwards;
+            width: var(--size);
+            aspect-ratio: 1;
+            border-radius: 50%;
+            position: relative;
+            overflow: hidden;
+            display: grid;
+            place-items: center;
+            margin: 10px auto; /* Center align */
+        }
+
+        [role="progressbar"]::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: conic-gradient(var(--primary) calc(var(--percentage) * 1%), var(--secondary) 0);
+            mask: radial-gradient(white 55%, transparent 0);
+            mask-mode: alpha;
+            -webkit-mask: radial-gradient(#0000 55%, #000 0);
+            -webkit-mask-mode: alpha;
+        }
+
+        [role="progressbar"]::after {
+            counter-reset: percentage var(--value);
+            content: counter(percentage) '%';
+            font-family: Helvetica, Arial, sans-serif;
+            font-size: calc(var(--size) / 5);
+            color: var(--primary);
+        }
+
       
     </style>
   </head>
@@ -665,27 +714,38 @@ button {
             $stmt->close();
         }
 
-          // Retrieve projects
-          $sql = "SELECT * FROM projects";
-          $result = $conn->query($sql);
+          // Fetch project details and calculate uploaded images
+$sql = "SELECT p.project_id, p.project_name, p.project_manager, p.sector, 
+p.location, p.duration, 
+COUNT(i.id) AS uploaded_images 
+FROM projects p 
+LEFT JOIN project_images i ON p.project_id = i.project_id 
+GROUP BY p.project_id";
+$result = $conn->query($sql);
 
-          if ($result->num_rows > 0) {
-            while ($row = $result->fetch_assoc()) {
-                echo "<li>
-                        <a href='project.php?project_id=" . $row["project_id"] . "' style='text-decoration: none; color: inherit;'>
+    if ($result->num_rows > 0) {
+        while ($row = $result->fetch_assoc()) {
+            // Calculate progress percentage
+            $duration = $row['duration'];
+            $uploadedImages = $row['uploaded_images'];
+            $progress = $duration > 0 ? ($uploadedImages / $duration) * 100 : 0;
+
+            echo "<li>
+                    <a href='project.php?project_id=" . $row["project_id"] . "' style='text-decoration: none; color: inherit;'>
                         <strong1>" . $row["project_name"] . "</strong1> <br>
-                            <strong>Project ID :</strong> " . $row["project_id"] . "<br>
-                            <strong>Project Manager :</strong> " . $row["project_manager"] . "<br>
-                            <strong>Sector :</strong> " . $row["sector"] . "<br>
-                            <strong>Location :</strong> " . $row["location"] . "<br>
-                            <strong>Duration :</strong> " . $row["duration"] . "<br>
-                        </a>
-                      </li>";
-            }
-        } else {
-            echo "<li>No projects found.</li>";
+                        <strong>Project ID :</strong> " . $row["project_id"] . "<br>
+                        <strong>Project Manager :</strong> " . $row["project_manager"] . "<br>
+                        <strong>Sector :</strong> " . $row["sector"] . "<br>
+                        <strong>Location :</strong> " . $row["location"] . "<br>
+                        <strong>Duration :</strong> " . $row["duration"] . " days<br>
+                    </a>
+                    <div role='progressbar' aria-valuenow='" . round($progress) . "' aria-valuemin='0' aria-valuemax='100' style='--value: " . round($progress) . "'></div>
+                </li>";
         }
-          $conn->close();
+    } else {
+        echo "<li>No projects found.</li>";
+    }
+    $conn->close();
         ?>
       </ul>
     </section>
